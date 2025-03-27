@@ -115,7 +115,7 @@ const BookingForm = ({ onSubmit = () => {} }: BookingFormProps) => {
         acSize: values.acSize,
         serviceDate: format(values.date, "yyyy-MM-dd"),
         serviceTime: values.time,
-        knownIssues: values.knownIssues,
+        knownIssues: values.knownIssues || "",
         // This would normally come from the cart, but for demo we'll use sample services
         services: [
           { id: "1", name: "Cuci AC 0.5 - 2 PK", price: 70000, quantity: 1 },

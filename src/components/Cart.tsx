@@ -11,12 +11,16 @@ import {
 } from "./ui/sheet";
 import { Separator } from "./ui/separator";
 import { Input } from "./ui/input";
+import { useNavigate } from "react-router-dom";
+import Navbar from "./Navbar";
+import Footer from "./Footer";
 
 interface CartItem {
   id: string;
   name: string;
   price: number;
   quantity: number;
+  category?: string;
 }
 
 interface EmergencyService {
@@ -25,38 +29,11 @@ interface EmergencyService {
   price: number;
 }
 
-interface CartProps {
-  items?: CartItem[];
-  onCheckout?: () => void;
-  onUpdateQuantity?: (id: string, quantity: number) => void;
-  onRemoveItem?: (id: string) => void;
-  onAddEmergencyService?: (serviceId: string) => void;
-}
-
-const Cart = ({
-  items = [
-    { id: "1", name: "Cuci AC 0.5 - 2 PK", price: 70000, quantity: 1 },
-    {
-      id: "2",
-      name: "Tambah Freon R22 0,5 - 1 PK",
-      price: 175000,
-      quantity: 1,
-    },
-  ],
-  onCheckout = () => console.log("Checkout clicked"),
-  onUpdateQuantity = () => {},
-  onRemoveItem = () => {},
-  onAddEmergencyService = () => {},
-}: CartProps) => {
-  const [isOpen, setIsOpen] = useState(false);
-
-  // Update isOpen when props change
-  useEffect(() => {
-    if (items.length > 0) {
-      setIsOpen(true);
-    }
-  }, [items.length]);
+const Cart = () => {
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [promoCode, setPromoCode] = useState("");
+  const navigate = useNavigate();
 
   const emergencyServices: EmergencyService[] = [
     { id: "e1", name: "Perbaikan Darurat", price: 150000 },
@@ -65,27 +42,74 @@ const Cart = ({
     { id: "e4", name: "Pengecekan Sistem", price: 75000 },
   ];
 
-  const subtotal = items.reduce(
-    (total, item) => total + item.price * item.quantity,
-    0,
-  );
-  const tax = subtotal * 0.11; // 11% tax
-  const total = subtotal + tax;
+  useEffect(() => {
+    // Load cart items from localStorage
+    const loadCart = () => {
+      const savedCart = localStorage.getItem("cart");
+      if (savedCart) {
+        setItems(JSON.parse(savedCart));
+      }
+      setIsLoading(false);
+    };
+
+    loadCart();
+
+    // Listen for cart updates
+    const handleCartUpdate = (e: any) => {
+      setItems(e.detail || []);
+    };
+
+    window.addEventListener("cart-updated", handleCartUpdate);
+
+    return () => {
+      window.removeEventListener("cart-updated", handleCartUpdate);
+    };
+  }, []);
+
+  const updateCart = (updatedItems: CartItem[]) => {
+    setItems(updatedItems);
+    localStorage.setItem("cart", JSON.stringify(updatedItems));
+    window.dispatchEvent(
+      new CustomEvent("cart-updated", { detail: updatedItems }),
+    );
+  };
 
   const handleQuantityChange = (id: string, change: number) => {
     const item = items.find((item) => item.id === id);
     if (item) {
       const newQuantity = Math.max(1, item.quantity + change);
-      onUpdateQuantity(id, newQuantity);
+      const updatedItems = items.map((item) =>
+        item.id === id ? { ...item, quantity: newQuantity } : item,
+      );
+      updateCart(updatedItems);
     }
   };
 
   const handleRemoveItem = (id: string) => {
-    onRemoveItem(id);
+    const updatedItems = items.filter((item) => item.id !== id);
+    updateCart(updatedItems);
   };
 
   const handleAddEmergencyService = (serviceId: string) => {
-    onAddEmergencyService(serviceId);
+    const service = emergencyServices.find((s) => s.id === serviceId);
+    if (!service) return;
+
+    const existingItem = items.find((item) => item.id === service.id);
+    if (existingItem) {
+      handleQuantityChange(service.id, 1);
+    } else {
+      const updatedItems = [
+        ...items,
+        {
+          id: service.id,
+          name: service.name,
+          price: service.price,
+          quantity: 1,
+          category: "emergency",
+        },
+      ];
+      updateCart(updatedItems);
+    }
   };
 
   const formatPrice = (price: number) => {
@@ -96,160 +120,211 @@ const Cart = ({
     }).format(price);
   };
 
+  const subtotal = items.reduce(
+    (total, item) => total + item.price * item.quantity,
+    0,
+  );
+  const tax = subtotal * 0.11; // 11% tax
+  const total = subtotal + tax;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 pt-20 pb-10 flex justify-center items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon"
-          className="relative bg-white text-black hover:bg-gray-100"
-        >
-          <ShoppingCart className="h-5 w-5" />
-          {items.length > 0 && (
-            <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white">
-              {items.reduce((total, item) => total + item.quantity, 0)}
-            </span>
-          )}
-        </Button>
-      </SheetTrigger>
-      <SheetContent className="w-full sm:max-w-md overflow-y-auto bg-white">
-        <SheetHeader>
-          <SheetTitle className="text-xl font-bold">Keranjang Anda</SheetTitle>
-        </SheetHeader>
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      <div className="container mx-auto px-4 py-8 pt-24">
+        <h1 className="text-2xl font-bold text-gray-800 mb-6">
+          Keranjang Belanja
+        </h1>
 
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64">
-            <ShoppingCart className="h-16 w-16 text-gray-300 mb-4" />
-            <p className="text-gray-500">Keranjang Anda kosong</p>
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+            <ShoppingCart className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+            <h2 className="text-xl font-semibold text-gray-700 mb-2">
+              Keranjang Anda Kosong
+            </h2>
+            <p className="text-gray-500 mb-6">
+              Anda belum menambahkan layanan apapun ke keranjang
+            </p>
             <Button
-              variant="outline"
-              className="mt-4"
-              onClick={() => setIsOpen(false)}
+              onClick={() => navigate("/services")}
+              className="bg-blue-600 hover:bg-blue-700"
             >
-              Lanjutkan Belanja
+              Lihat Layanan
             </Button>
           </div>
         ) : (
-          <div className="mt-6 space-y-6">
-            <div className="space-y-4">
-              <h3 className="font-medium">Layanan yang dipilih</h3>
-              <AnimatePresence>
-                {items.map((item) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="flex items-center justify-between py-3 border-b border-gray-100"
-                  >
-                    <div className="flex-1">
-                      <h4 className="text-sm font-medium">{item.name}</h4>
-                      <p className="text-sm text-gray-500">
-                        {formatPrice(item.price)}
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-2">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div className="p-4 border-b">
+                  <h2 className="text-lg font-semibold text-gray-800">
+                    Layanan yang dipilih
+                  </h2>
+                </div>
+
+                <div className="divide-y">
+                  <AnimatePresence>
+                    {items.map((item) => (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="p-4 flex flex-col sm:flex-row sm:items-center justify-between"
+                      >
+                        <div className="flex-1 mb-3 sm:mb-0">
+                          <h3 className="font-medium text-gray-800">
+                            {item.name}
+                          </h3>
+                          {item.category && (
+                            <span className="text-xs text-gray-500">
+                              {item.category}
+                            </span>
+                          )}
+                          <div className="text-blue-600 font-semibold mt-1">
+                            {formatPrice(item.price)}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center">
+                          <div className="flex items-center border rounded-md mr-4">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleQuantityChange(item.id, -1)}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-6 text-center">
+                              {item.quantity}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleQuantityChange(item.id, 1)}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => handleRemoveItem(item.id)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
+                <div className="p-4 border-b">
+                  <h2 className="text-lg font-semibold text-gray-800">
+                    Layanan Darurat/Tambahan
+                  </h2>
+                </div>
+                <div className="p-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+                    {emergencyServices.map((service) => (
                       <Button
+                        key={service.id}
                         variant="outline"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => handleQuantityChange(item.id, -1)}
+                        className="justify-between text-left h-auto py-2 px-3"
+                        onClick={() => handleAddEmergencyService(service.id)}
                       >
-                        <Minus className="h-3 w-3" />
+                        <span className="text-sm">{service.name}</span>
+                        <span className="text-sm font-medium">
+                          {formatPrice(service.price)}
+                        </span>
                       </Button>
-                      <span className="w-6 text-center">{item.quantity}</span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => handleQuantityChange(item.id, 1)}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                        onClick={() => handleRemoveItem(item.id)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+                    ))}
+                  </div>
+                  <div className="bg-yellow-50 p-3 rounded-md flex items-start space-x-2 text-sm">
+                    <AlertCircle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-yellow-700">
+                      Layanan darurat/tambahan dapat ditambahkan jika diperlukan
+                      saat teknisi berada di lokasi.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-4">
-              <h3 className="font-medium">Layanan Darurat/Tambahan</h3>
-              <div className="grid grid-cols-1 gap-2">
-                {emergencyServices.map((service) => (
-                  <Button
-                    key={service.id}
-                    variant="outline"
-                    className="justify-between text-left h-auto py-2 px-3"
-                    onClick={() => handleAddEmergencyService(service.id)}
-                  >
-                    <span className="text-sm">{service.name}</span>
-                    <span className="text-sm font-medium">
-                      {formatPrice(service.price)}
-                    </span>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">
+                Ringkasan Pesanan
+              </h2>
+
+              <div className="space-y-3 mb-6">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Subtotal</span>
+                  <span className="font-medium">{formatPrice(subtotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Pajak (11%)</span>
+                  <span className="font-medium">{formatPrice(tax)}</span>
+                </div>
+                <div className="border-t pt-3 mt-3">
+                  <div className="flex justify-between font-semibold">
+                    <span>Total</span>
+                    <span className="text-blue-600">{formatPrice(total)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-6">
+                <div className="flex items-center">
+                  <Input
+                    placeholder="Kode Promo"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button variant="secondary" className="ml-2">
+                    Terapkan
                   </Button>
-                ))}
+                </div>
               </div>
-              <div className="bg-yellow-50 p-3 rounded-md flex items-start space-x-2 text-sm">
-                <AlertCircle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
-                <p className="text-yellow-700">
-                  Layanan darurat/tambahan dapat ditambahkan jika diperlukan
-                  saat teknisi berada di lokasi.
-                </p>
-              </div>
+
+              <Button
+                className="w-full bg-blue-600 hover:bg-blue-700 mb-3"
+                onClick={() => navigate("/booking")}
+              >
+                Lanjutkan ke Pemesanan
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => navigate("/services")}
+              >
+                Tambah Layanan Lainnya
+              </Button>
+
+              <p className="text-xs text-center text-gray-500 mt-4">
+                Dengan melanjutkan, Anda menyetujui syarat dan ketentuan kami
+                termasuk kebijakan pembatalan.
+              </p>
             </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center">
-                <Input
-                  placeholder="Kode Promo"
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                  className="flex-1"
-                />
-                <Button variant="secondary" className="ml-2">
-                  Terapkan
-                </Button>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Subtotal</span>
-                <span>{formatPrice(subtotal)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Pajak (11%)</span>
-                <span>{formatPrice(tax)}</span>
-              </div>
-              <div className="flex justify-between font-medium">
-                <span>Total</span>
-                <span>{formatPrice(total)}</span>
-              </div>
-            </div>
-
-            <Button className="w-full" size="lg" onClick={onCheckout}>
-              Lanjutkan ke Pembayaran
-            </Button>
-
-            <p className="text-xs text-center text-gray-500 mt-4">
-              Dengan melanjutkan, Anda menyetujui syarat dan ketentuan kami
-              termasuk kebijakan pembatalan.
-            </p>
           </div>
         )}
-      </SheetContent>
-    </Sheet>
+      </div>
+      <Footer />
+    </div>
   );
 };
 

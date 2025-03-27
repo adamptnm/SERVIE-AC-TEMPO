@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Menu, X, Phone, ShoppingCart } from "lucide-react";
 import { cn } from "../lib/utils";
@@ -11,6 +11,7 @@ interface NavbarProps {
 
 const Navbar = ({ onCartOpen = () => {} }: NavbarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
   const navigate = useNavigate();
 
   const navItems = [
@@ -20,6 +21,31 @@ const Navbar = ({ onCartOpen = () => {} }: NavbarProps) => {
     { name: "Contact", path: "/contact" },
     { name: "Admin", path: "/admin/login" },
   ];
+
+  // Update cart count on mount and when cart changes
+  useEffect(() => {
+    const updateCartCount = () => {
+      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+      const count = cart.reduce((total, item) => total + item.quantity, 0);
+      setCartCount(count);
+    };
+
+    // Initial count
+    updateCartCount();
+
+    // Listen for cart updates
+    const handleCartUpdate = () => updateCartCount();
+    window.addEventListener("cart-updated", handleCartUpdate);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener("cart-updated", handleCartUpdate);
+    };
+  }, []);
+
+  const handleCartClick = () => {
+    navigate("/cart");
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-md">
@@ -58,13 +84,15 @@ const Navbar = ({ onCartOpen = () => {} }: NavbarProps) => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={onCartOpen}
+            onClick={handleCartClick}
             className="relative"
           >
             <ShoppingCart className="h-5 w-5" />
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-              0
-            </span>
+            {cartCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                {cartCount}
+              </span>
+            )}
           </Button>
 
           <Button
@@ -80,13 +108,15 @@ const Navbar = ({ onCartOpen = () => {} }: NavbarProps) => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={onCartOpen}
+            onClick={handleCartClick}
             className="relative"
           >
             <ShoppingCart className="h-5 w-5" />
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-              0
-            </span>
+            {cartCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                {cartCount}
+              </span>
+            )}
           </Button>
 
           <Sheet>

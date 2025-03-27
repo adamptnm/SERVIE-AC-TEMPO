@@ -9,6 +9,8 @@ import {
   ArrowDownRight,
   Calendar,
   DollarSign,
+  Settings as SettingsIcon,
+  Loader2,
 } from "lucide-react";
 import {
   Card,
@@ -23,6 +25,7 @@ import Sidebar from "@/components/admin/Sidebar";
 import ServiceRequests from "@/components/admin/ServiceRequests";
 import CustomerInfo from "@/components/admin/CustomerInfo";
 import ServiceHistory from "@/components/admin/ServiceHistory";
+import Settings from "@/components/admin/Settings";
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -70,7 +73,7 @@ const Dashboard = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
       <div className="flex-1 overflow-auto">
         <div className="p-6 space-y-6">
@@ -99,6 +102,7 @@ const Dashboard = () => {
               <TabsTrigger value="requests">Permintaan Layanan</TabsTrigger>
               <TabsTrigger value="customers">Informasi Pelanggan</TabsTrigger>
               <TabsTrigger value="history">Riwayat Layanan</TabsTrigger>
+              <TabsTrigger value="settings">Pengaturan</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-4">
@@ -299,6 +303,10 @@ const Dashboard = () => {
 
             <TabsContent value="history">
               <ServiceHistory />
+            </TabsContent>
+
+            <TabsContent value="settings">
+              <Settings />
             </TabsContent>
           </Tabs>
         </div>
